@@ -67,7 +67,7 @@ func main() {
 	w, err := repo.Worktree()
 	checkIfError(err)
 
-	// go to head for each branch
+	// iterate over each branch
 	err = refs.ForEach(func(r *plumbing.Reference) error {
 		err = w.Checkout(&git.CheckoutOptions{
 			Hash: r.Hash(),
@@ -79,12 +79,11 @@ func main() {
 
 		// fmt.Println(r.Strings())
 
-		// ... retrieves the commit history
+		// retrieve the commit history
 		cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 		checkIfError(err)
 
 		// we want to iterate over every commit, then search all files in that state
-		// print out branch name - commit id
 		err = cIter.ForEach(func(c *object.Commit) error {
 			fmt.Printf("%s -- %s\n", c.Hash, r.Name().Short())
 
@@ -92,7 +91,7 @@ func main() {
 		})
 		checkIfError(err)
 
-		return nil // ForEach needs some return
+		return nil
 	})
 	checkIfError(err)
 

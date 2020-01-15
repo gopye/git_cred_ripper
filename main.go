@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 )
 
@@ -59,35 +60,42 @@ func main() {
 	repo, err := git.PlainOpen(directory)
 	checkIfError(err)
 
-	ref, err := repo.Head()
+	// find all branches in repo
+	refs, err := repo.Branches()
 	checkIfError(err)
 
-	// ... retrieves the commit history
-	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	w, err := repo.Worktree()
 	checkIfError(err)
 
-	// we want to iterate over every commit, then search all files in that state
-	err = cIter.ForEach(func(c *object.Commit) error {
-		fmt.Println(c)
+	// go to head for each branch
+	err = refs.ForEach(func(r *plumbing.Reference) error {
+		err = w.Checkout(&git.CheckoutOptions{
+			Hash: r.Hash(),
+		})
+		checkIfError(err)
 
-		return nil
+		ref, err := repo.Head()
+		checkIfError(err)
+
+		// fmt.Println(r.Strings())
+
+		// ... retrieves the commit history
+		cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+		checkIfError(err)
+
+		// we want to iterate over every commit, then search all files in that state
+		// print out branch name - commit id
+		err = cIter.ForEach(func(c *object.Commit) error {
+			fmt.Printf("%s -- %s\n", c.Hash, r.Name().Short())
+
+			return nil
+		})
+		checkIfError(err)
+
+		return nil // ForEach needs some return
 	})
 	checkIfError(err)
 
-	// w, err := repo.Worktree()
-	// checkIfError(err)
-
-	// find all branches in repo
-	// ref ReferenceIter interface, .Next() .ForEach() -- plumbing.Reference,.Close
-	// refs, err := repo.Branches()
-	// checkIfError(err)
-
-	// err = refs.ForEach(func(r *plumbing.Reference) error {
-	// 	// what eles does plumbing.Reference expose?
-	// 	fmt.Println(r.Hash())
-	// 	return nil
-	// })
-	// checkIfError(err)
 }
 
 func visit(files *[]string) filepath.WalkFunc {

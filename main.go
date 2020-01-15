@@ -1,60 +1,93 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
+
+	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing/object"
 )
 
+// todo: take git url and clone repository and do work.
+// todo: print report in order of likelyhood of a hit. no space +1, upper and lower case +1, has numbers +1, etc
+// todo: print file, branch, line info. maybe with a -v flag
+// todo: remove duplicates from report, change structure of program to add all lines to data struct
 func main() {
 	// take command line arg for directory path
-	// todo: take git url and clone repository and do work
 	if len(os.Args) != 2 {
 		fmt.Println("Not enough arguments in call. Use target dir fullpath as args.\n", os.Args[0])
 		os.Exit(1)
 	}
 
-	root := os.Args[1]
+	directory := os.Args[1]
 	var files []string
 
-	err := filepath.Walk(root, visit(&files))
+	err := filepath.Walk(directory, visit(&files))
 	if err != nil {
 		panic(err)
 	}
 
 	// open each file and do work
-	for _, file := range files {
-		f, err := os.Open(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
+	// for _, file := range files {
+	// 	f, err := os.Open(file)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	defer f.Close()
 
-		scanner := bufio.NewScanner(f)
-		scanner.Split(bufio.ScanLines)
+	// 	scanner := bufio.NewScanner(f)
+	// 	scanner.Split(bufio.ScanLines)
 
-		// remove duplicates, change structure of program to add all lines to data struct
-		for scanner.Scan() {
-			line := scanner.Text()
+	// 	for scanner.Scan() {
+	// 		line := scanner.Text()
 
-			// what are my parse rules?
-			// pseudo code for my re
-			// an equals sign followed by any amount of whitespace than " with any amount of chars, no whitespace "
-			re, err := regexp.Compile(`((?:[^(==)])=[\s'"]*[a-zA-Z0-9\s]*["|'])`)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if re.Match([]byte(line)) {
-				fmt.Println(line)
-			}
-		}
-	}
+	// 		// what are my parse rules?
+	// 		// pseudo code for my re
+	// 		// an equals sign followed by any amount of whitespace than " with any amount of chars, no whitespace "
+	// 		re, err := regexp.Compile(`((?:[^(==)])=[\s'"]*[a-zA-Z0-9\s]*["|'])`)
+	// 		if err != nil {
+	// 			log.Fatal(err)
+	// 		}
+	// 		if re.Match([]byte(line)) {
+	// 			fmt.Println(line)
+	// 		}
+	// 	}
+	// }
 
-	// open git and iterate over it
-	// adv go through each file -- add vars to [] remove duplicates
+	repo, err := git.PlainOpen(directory)
+	checkIfError(err)
+
+	ref, err := repo.Head()
+	checkIfError(err)
+
+	// ... retrieves the commit history
+	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	checkIfError(err)
+
+	// we want to iterate over every commit, then search all files in that state
+	err = cIter.ForEach(func(c *object.Commit) error {
+		fmt.Println(c)
+
+		return nil
+	})
+	checkIfError(err)
+
+	// w, err := repo.Worktree()
+	// checkIfError(err)
+
+	// find all branches in repo
+	// ref ReferenceIter interface, .Next() .ForEach() -- plumbing.Reference,.Close
+	// refs, err := repo.Branches()
+	// checkIfError(err)
+
+	// err = refs.ForEach(func(r *plumbing.Reference) error {
+	// 	// what eles does plumbing.Reference expose?
+	// 	fmt.Println(r.Hash())
+	// 	return nil
+	// })
+	// checkIfError(err)
 }
 
 func visit(files *[]string) filepath.WalkFunc {
@@ -63,11 +96,19 @@ func visit(files *[]string) filepath.WalkFunc {
 			log.Fatal(err)
 		}
 
-		// make this more inclusive
-		// come up with a regex to exclude photo blobs
+		// todo: create a file extention blacklist
 		if filepath.Ext(path) == ".js" {
 			*files = append(*files, path)
 		}
 		return nil
 	}
+}
+
+func checkIfError(err error) {
+	if err == nil {
+		return
+	}
+
+	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
+	os.Exit(1)
 }

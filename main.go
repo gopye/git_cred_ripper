@@ -8,9 +8,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing/object"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+
+	// "gopkg.in/src-d/go-git.v4/plumbing/object"
+	// "gopkg.in/src-d/go-git.v4/storage/memory"
 	// "github.com/go-git/go-git/v4"
 	// "github.com/go-git/go-git/v4/plumbing/object"
 )
@@ -108,9 +112,11 @@ func main() {
 	// List the history of the repository
 	info("git log --oneline")
 
+	since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)
 	// commitIter, err := repo.CommitObjects()
-	commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash(), All: true})
 	// commitIter, err := repo.Log(&git.LogOptions{Order: LogOrderCommitterTime, All: true})
+	commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash(), Since: &since, Until: &until})
 	checkIfError(err)
 	err = commitIter.ForEach(func(c *object.Commit) error {
 		fmt.Println(c)

@@ -2,4 +2,4 @@ module github.com/gopye/git_cred_ripper
 
 go 1.13
 
-require gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
+require github.com/go-git/go-git/v5 v5.0.0 // indirect

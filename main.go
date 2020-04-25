@@ -8,15 +8,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
+	// "time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-
-	// "gopkg.in/src-d/go-git.v4/plumbing/object"
-	// "gopkg.in/src-d/go-git.v4/storage/memory"
-	// "github.com/go-git/go-git/v4"
-	// "github.com/go-git/go-git/v4/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 // todo: take git url and clone repository and do work.
@@ -28,22 +24,30 @@ import (
 // maybe need regex for yml, json, toml, etc
 
 func main() {
-	// get command line arg for directory path
-	if len(os.Args) != 2 {
-		fmt.Println("Not enough arguments in call. Use target dir fullpath as args.\n", os.Args[0])
-		os.Exit(1)
-	}
-
-	directory := os.Args[1]
-
-	repo, err := git.PlainOpen(directory)
+	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL: os.Args[1],
+	})
 	checkIfError(err)
 
-	ref, err := repo.Head()
+	// get command line arg for directory path
+	// if len(os.Args) != 2 {
+	// 	fmt.Println("Not enough arguments in call. Use target dir fullpath as args.\n", os.Args[0])
+	// 	os.Exit(1)
+	// }
+
+	// directory := os.Args[1]
+
+	// repo, err := git.PlainOpen(directory)
+	// checkIfError(err)
+
+
+
+
+	ref, err := r.Head()
 	checkIfError(err)
 
 	// ... retrieving the commit object
-	commit, err := repo.CommitObject(ref.Hash())
+	commit, err := r.CommitObject(ref.Hash())
 	checkIfError(err)
 
 	fmt.Println(commit)
@@ -69,8 +73,8 @@ func main() {
 			return nil
 		}
 
-		fullpath := directory + "/" + file.Name
-		f, err := os.Open(fullpath)
+		// fullpath := directory + "/" + file.Name
+		f, err := os.Open(file.Name)
 		if err != nil {
 			fmt.Printf("CANNOT OPEN: %s", file.Name)
 		}
@@ -112,17 +116,25 @@ func main() {
 	// List the history of the repository
 	info("git log --oneline")
 
-	since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
-	until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)
+	// since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
+	// until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)
 	// commitIter, err := repo.CommitObjects()
-	// commitIter, err := repo.Log(&git.LogOptions{Order: LogOrderCommitterTime, All: true})
-	commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash(), Since: &since, Until: &until})
-	checkIfError(err)
-	err = commitIter.ForEach(func(c *object.Commit) error {
-		fmt.Println(c)
+	// commitIter, err := r.Log(&git.LogOptions{Order: LogOrderCommitterTime, All: true})
+	// commitIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
 
+	// var commits []*Commit
+	object.NewCommitIterCTime(commit, nil, nil).ForEach(func(c *object.Commit) error {
+		// commits = append(commits, c)
+		fmt.Println(c)
 		return nil
 	})
+
+	// checkIfError(err)
+	// err = commitIter.ForEach(func(c *object.Commit) error {
+		// fmt.Println(c)
+
+		// return nil
+	// })
 
 	// find all branches in repo
 	// refs, err := repo.Branches()

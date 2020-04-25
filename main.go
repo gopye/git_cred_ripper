@@ -29,20 +29,6 @@ func main() {
 	})
 	checkIfError(err)
 
-	// get command line arg for directory path
-	// if len(os.Args) != 2 {
-	// 	fmt.Println("Not enough arguments in call. Use target dir fullpath as args.\n", os.Args[0])
-	// 	os.Exit(1)
-	// }
-
-	// directory := os.Args[1]
-
-	// repo, err := git.PlainOpen(directory)
-	// checkIfError(err)
-
-
-
-
 	ref, err := r.Head()
 	checkIfError(err)
 
@@ -55,11 +41,9 @@ func main() {
 	// TODO 1 - Order prospects
 	// step 3 - evaluate diff commit1 commit2
 
-	// ... retrieve the tree from the commit
+	// ... retrieve the file tree from the commit
 	tree, err := commit.Tree()
 	checkIfError(err)
-
-	fmt.Println("\n\nIGNORE\n\n")
 
 	list := map[string][]map[string]string{}
 	iter := 0
@@ -72,15 +56,13 @@ func main() {
 		if excludeExtRe.Match([]byte(file.Name)) {
 			return nil
 		}
+		// fmt.Println(file.Contents())
+		// fmt.Println("-----------")
 
-		// fullpath := directory + "/" + file.Name
-		f, err := os.Open(file.Name)
-		if err != nil {
-			fmt.Printf("CANNOT OPEN: %s", file.Name)
-		}
-		defer f.Close()
+		f, err := file.Contents()
+		checkIfError(err)
 
-		scanner := bufio.NewScanner(f)
+		scanner := bufio.NewScanner(strings.NewReader(f))
 		scanner.Split(bufio.ScanLines)
 
 		for scanner.Scan() {
@@ -107,14 +89,9 @@ func main() {
 	})
 
 	fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
-	// List the tree from HEAD
-	info("git ls-tree -r HEAD")
 
 	// ... retrieve the tree from the commit
 	fmt.Printf("commit parent hashes: %s\n", commit.ParentHashes)
-
-	// List the history of the repository
-	info("git log --oneline")
 
 	// since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 	// until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)
@@ -123,58 +100,12 @@ func main() {
 	// commitIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
 
 	// var commits []*Commit
-	object.NewCommitIterCTime(commit, nil, nil).ForEach(func(c *object.Commit) error {
-		// commits = append(commits, c)
-		fmt.Println(c)
-		return nil
-	})
-
-	// checkIfError(err)
-	// err = commitIter.ForEach(func(c *object.Commit) error {
-		// fmt.Println(c)
-
-		// return nil
-	// })
-
-	// find all branches in repo
-	// refs, err := repo.Branches()
-	// checkIfError(err)
-
-	// w, err := repo.Worktree()
-	// checkIfError(err)
-
-	// maybe just iterate over every commit w/ func (r *Repository) CommitObjects()
-	// iterate over each branch
-	// err = refs.ForEach(func(r *plumbing.Reference) error {
-	// 	err = w.Checkout(&git.CheckoutOptions{
-	// 		Hash: r.Hash(),
-	// 	})
-	// 	checkIfError(err)
-
-	// 	ref, err := repo.Head()
-	// 	checkIfError(err)
-
-	// we want to iterate over every commit, then search all files in that state
-	// err = commitIter.ForEach(func(c *object.Commit) error {
-	// fmt.Printf("%s -- %s\n", c.Hash, r.Name().Short())
-	// }
-
-	// for _, file := range files {
-	// 	f, err := os.Open(file)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	defer f.Close()
-
-	// 	fmt.Println(f)
-	// }
-	// 		return nil
-	// 	})
-	// 	checkIfError(err)
-
+	// object.NewCommitIterCTime(commit, nil, nil).ForEach(func(c *object.Commit) error {
+	// 	// commits = append(commits, c)
+	// 	fmt.Println(c)
 	// 	return nil
 	// })
-	checkIfError(err)
+	// checkIfError(err)
 }
 
 type hit struct {

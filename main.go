@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,27 +24,16 @@ import (
 // todo: create tests w/ test repo
 // maybe need regex for yml, json, toml, etc
 
-func main() {
-	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL: os.Args[1],
-	})
-	checkIfError(err)
-
-	ref, err := r.Head()
-	checkIfError(err)
-
-	// ... retrieving the commit object
-	commit, err := r.CommitObject(ref.Hash())
-	checkIfError(err)
-
-	fmt.Println(commit)
-
 	// TODO 1 - Order prospects
 	// step 3 - evaluate diff commit1 commit2
+func main() {
+	var dir string
+	var url string
+	flag.StringVar(&dir, "dir", ".", "repo directory")
+	flag.StringVar(&url, "url", "unset", "repo url")
+	flag.Parse()
 
-	// ... retrieve the file tree from the commit
-	tree, err := commit.Tree()
-	checkIfError(err)
+	fmt.Println(url)
 
 	list := map[string][]map[string]string{}
 	iter := 0
@@ -51,47 +41,123 @@ func main() {
 	excludeExtRe := regexp.MustCompile(`^.*\.(jpg|jpeg|tiff|png|JPG|gif|GIF|svg|doc|DOC|pdf|PDF)$`)
 	extractRe := regexp.MustCompile(`("|')([^("|')[\]]*)("|')`)
 
-	tree.Files().ForEach(func(file *object.File) error {
-		// check for file types we don't want to inspect
-		if excludeExtRe.Match([]byte(file.Name)) {
-			return nil
-		}
-		// fmt.Println(file.Contents())
-		// fmt.Println("-----------")
-
-		f, err := file.Contents()
+	if url != "unset" {
+		r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+			URL: url,
+		})
 		checkIfError(err)
 
-		scanner := bufio.NewScanner(strings.NewReader(f))
-		scanner.Split(bufio.ScanLines)
+		ref, err := r.Head()
+		checkIfError(err)
 
-		for scanner.Scan() {
-			line := scanner.Text()
+		// ... retrieving the commit object
+		commit, err := r.CommitObject(ref.Hash())
+		checkIfError(err)
 
-			if lineRe.Match([]byte(line)) {
-				temp := string(extractRe.Find([]byte(line)))
-				ns := strings.Replace(temp, "'", "", -1)
-				ns = strings.Replace(ns, "\"", "", -1)
-				_, ok := list[ns]
-				if !ok {
-					// add commit id or branch
-					list[ns] = []map[string]string{{"line": line}, {"fileName": file.Name}}
-					iter += 1
+		fmt.Println(commit)
+
+
+		// ... retrieve the file tree from the commit
+		tree, err := commit.Tree()
+		checkIfError(err)
+
+		list := map[string][]map[string]string{}
+		iter := 0
+
+		tree.Files().ForEach(func(file *object.File) error {
+			// check for file types we don't want to inspect
+			if excludeExtRe.Match([]byte(file.Name)) {
+				return nil
+			}
+
+			f, err := file.Contents()
+			checkIfError(err)
+
+			scanner := bufio.NewScanner(strings.NewReader(f))
+			scanner.Split(bufio.ScanLines)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if lineRe.Match([]byte(line)) {
+					temp := string(extractRe.Find([]byte(line)))
+					ns := strings.Replace(temp, "'", "", -1)
+					ns = strings.Replace(ns, "\"", "", -1)
+					_, ok := list[ns]
+					if !ok {
+						// add commit id or branch
+						list[ns] = []map[string]string{{"line": line}, {"fileName": file.Name}}
+						iter += 1
+					}
 				}
 			}
-		}
-
+			return nil
+		})
 		for k, _ := range list {
 			fmt.Println("k:", k)
 		}
 
-		return nil
-	})
+		fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+		// ... retrieve the tree from the commit
+		fmt.Printf("commit parent hashes: %s\n", commit.ParentHashes)
+	} else if dir != "unset" {
 
-	fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+		repo, err := git.PlainOpen(dir)
+		checkIfError(err)
 
-	// ... retrieve the tree from the commit
-	fmt.Printf("commit parent hashes: %s\n", commit.ParentHashes)
+		ref, err := repo.Head()
+		checkIfError(err)
+
+		// ... retrieving the commit object
+		commit, err := repo.CommitObject(ref.Hash())
+		checkIfError(err)
+
+		// ... retrieve the tree from the commit
+		tree, err := commit.Tree()
+		checkIfError(err)
+
+		tree.Files().ForEach(func(file *object.File) error {
+			// check for file types we don't want to inspect
+			if excludeExtRe.Match([]byte(file.Name)) {
+				return nil
+			}
+
+			fullpath := dir + "/" + file.Name
+			f, err := os.Open(fullpath)
+			if err != nil {
+				fmt.Printf("CANNOT OPEN: %s", file.Name)
+			}
+			defer f.Close()
+
+			scanner := bufio.NewScanner(f)
+			scanner.Split(bufio.ScanLines)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				if lineRe.Match([]byte(line)) {
+					temp := string(extractRe.Find([]byte(line)))
+					ns := strings.Replace(temp, "'", "", -1)
+					ns = strings.Replace(ns, "\"", "", -1)
+					_, ok := list[ns]
+					if !ok {
+						// add commit id or branch
+						list[ns] = []map[string]string{{"line": line}, {"fileName": file.Name}}
+						iter += 1
+					}
+				}
+			}
+
+			return nil
+		})
+		for k, _ := range list {
+			fmt.Println("k:", k)
+		}
+		fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+
+	} else {
+		fmt.Println("Error handling flags")
+	}
+
 
 	// since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 	// until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)

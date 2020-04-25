@@ -65,7 +65,7 @@ func main() {
 		iter := 0
 
 		tree.Files().ForEach(func(file *object.File) error {
-			// check for file types we don't want to inspect
+			// drop file types we don't want to inspect
 			if excludeExtRe.Match([]byte(file.Name)) {
 				return nil
 			}
@@ -80,6 +80,7 @@ func main() {
 				line := scanner.Text()
 
 				if lineRe.Match([]byte(line)) {
+
 					temp := string(extractRe.Find([]byte(line)))
 					ns := strings.Replace(temp, "'", "", -1)
 					ns = strings.Replace(ns, "\"", "", -1)
@@ -158,20 +159,6 @@ func main() {
 		fmt.Println("Error handling flags")
 	}
 
-
-	// since := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
-	// until := time.Date(2019, 7, 30, 0, 0, 0, 0, time.UTC)
-	// commitIter, err := repo.CommitObjects()
-	// commitIter, err := r.Log(&git.LogOptions{Order: LogOrderCommitterTime, All: true})
-	// commitIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
-
-	// var commits []*Commit
-	// object.NewCommitIterCTime(commit, nil, nil).ForEach(func(c *object.Commit) error {
-	// 	// commits = append(commits, c)
-	// 	fmt.Println(c)
-	// 	return nil
-	// })
-	// checkIfError(err)
 }
 
 type hit struct {

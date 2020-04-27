@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sort"
 	// "time"
 
 	"github.com/go-git/go-git/v5"
@@ -16,16 +17,14 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-// todo: take git url and clone repository and do work.
 // todo: print report in order of likelyhood of a hit. no space +1,
 // 		 upper and lower case +1 , has numbers +1, str is longer than X +1, etc
 // todo: print file, branch, line info. maybe with a -v flag
-// todo: remove duplicates from report, change structure of program to add all lines to data struct
 // todo: create tests w/ test repo
 // maybe need regex for yml, json, toml, etc
 
-	// TODO 1 - Order prospects
-	// step 3 - evaluate diff commit1 commit2
+// step 4 - evaluate diff commit1 commit2
+
 func main() {
 	var dir string
 	var url string
@@ -150,10 +149,32 @@ func main() {
 
 			return nil
 		})
-		for k, _ := range list {
+		// for k, _ := range list {
+		// 	fmt.Println("k:", k)
+		// }
+		// fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+
+		var keys []string
+		for k, v := range list {
+			keys = append(keys, k)
+			// list := map[string][]map[string]string{}
 			fmt.Println("k:", k)
+			for _,v1 := range v[0] {
+				fmt.Println("v:", strings.TrimSpace(v1))
+			}
+			fmt.Println("------------")
 		}
+
 		fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+		
+		sort.Sort(ByLen(keys))
+
+		i := 0
+		for i < len(keys) {
+			fmt.Println(keys[i])
+			i++
+		}
+
 
 	} else {
 		fmt.Println("Error handling flags")
@@ -165,6 +186,21 @@ type hit struct {
 	prospect string
 	line     string
 }
+
+type ByLen []string
+
+func (a ByLen) Len() int {
+	return len(a)
+}
+
+func (a ByLen) Less(i, j int) bool{
+	return len(a[i]) > len(a[j])
+}
+
+func (a ByLen) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
 
 func visit(files *[]string) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {

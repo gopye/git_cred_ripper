@@ -10,9 +10,10 @@ import (
 	"regexp"
 	"strings"
 	"sort"
-	// "time"
 
+	// "github.com/go-git/go-git"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
@@ -32,13 +33,7 @@ func main() {
 	flag.StringVar(&url, "url", "unset", "repo url")
 	flag.Parse()
 
-	fmt.Println(url)
-
-	list := map[string][]map[string]string{}
-	iter := 0
-	lineRe := regexp.MustCompile(`((?:[^(==)])=[\s'"]*[a-zA-Z0-9\s]*["|'])`)
-	excludeExtRe := regexp.MustCompile(`^.*\.(jpg|jpeg|tiff|png|JPG|gif|GIF|svg|doc|DOC|pdf|PDF)$`)
-	extractRe := regexp.MustCompile(`("|')([^("|')[\]]*)("|')`)
+	// fmt.Println(url)
 
 	if url != "unset" {
 		r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
@@ -55,15 +50,12 @@ func main() {
 
 		fmt.Println(commit)
 
-
 		// ... retrieve the file tree from the commit
 		tree, err := commit.Tree()
 		checkIfError(err)
 
-		list := map[string][]map[string]string{}
-		iter := 0
-
 		tree.Files().ForEach(func(file *object.File) error {
+			iter := 0
 			// drop file types we don't want to inspect
 			if excludeExtRe.Match([]byte(file.Name)) {
 				return nil
@@ -97,7 +89,7 @@ func main() {
 			fmt.Println("k:", k)
 		}
 
-		fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+		fmt.Printf("TOTAL STRINGS = %s\n", len(list))
 		// ... retrieve the tree from the commit
 		fmt.Printf("commit parent hashes: %s\n", commit.ParentHashes)
 	} else if dir != "unset" {
@@ -112,60 +104,22 @@ func main() {
 		commit, err := repo.CommitObject(ref.Hash())
 		checkIfError(err)
 
-		// ... retrieve the tree from the commit
-		tree, err := commit.Tree()
+		scanCommitTree(commit, dir)
 		checkIfError(err)
 
-		tree.Files().ForEach(func(file *object.File) error {
-			// check for file types we don't want to inspect
-			if excludeExtRe.Match([]byte(file.Name)) {
-				return nil
-			}
-
-			fullpath := dir + "/" + file.Name
-			f, err := os.Open(fullpath)
-			if err != nil {
-				fmt.Printf("CANNOT OPEN: %s", file.Name)
-			}
-			defer f.Close()
-
-			scanner := bufio.NewScanner(f)
-			scanner.Split(bufio.ScanLines)
-
-			for scanner.Scan() {
-				line := scanner.Text()
-				if lineRe.Match([]byte(line)) {
-					temp := string(extractRe.Find([]byte(line)))
-					ns := strings.Replace(temp, "'", "", -1)
-					ns = strings.Replace(ns, "\"", "", -1)
-					_, ok := list[ns]
-					if !ok {
-						// add commit id or branch
-						list[ns] = []map[string]string{{"line": line}, {"fileName": file.Name}}
-						iter += 1
-					}
-				}
-			}
-
-			return nil
-		})
-		// for k, _ := range list {
-		// 	fmt.Println("k:", k)
-		// }
-		// fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
 
 		var keys []string
-		for k, v := range list {
+		for k, _ := range list {
 			keys = append(keys, k)
 			// list := map[string][]map[string]string{}
-			fmt.Println("k:", k)
-			for _,v1 := range v[0] {
-				fmt.Println("v:", strings.TrimSpace(v1))
-			}
-			fmt.Println("------------")
+			// fmt.Println("k:", k)
+			// for _,v1 := range v[0] {
+			// 	fmt.Println("v:", strings.TrimSpace(v1))
+			// }
+			// fmt.Println("------------")
 		}
 
-		fmt.Printf("TOTAL STRINGS = %s\n\n", iter)
+		fmt.Printf("TOTAL STRINGS = %s\n", len(list))
 		
 		sort.Sort(ByLen(keys))
 
@@ -175,7 +129,17 @@ func main() {
 			i++
 		}
 
+		var work = make(map[plumbing.Hash][]plumbing.Hash)
+		work[commit.Hash] = commit.ParentHashes
+		fmt.Println(commit.Hash)
+		fmt.Println(commit.ParentHashes)
 
+		fmt.Println("----------------" )
+		fmt.Println(work)
+
+		work[commit.Hash] = append(work[commit.Hash], commit.Hash)
+		fmt.Println("----------------" )
+		fmt.Println(work)
 	} else {
 		fmt.Println("Error handling flags")
 	}
@@ -232,4 +196,55 @@ func checkIfError(err error) {
 // Info should be used to describe the example commands that are about to run.
 func info(format string, args ...interface{}) {
 	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+}
+
+var list = map[string][]map[string]string{}
+var lineRe = regexp.MustCompile(`((?:[^(==)])=[\s'"]*[a-zA-Z0-9\s]*["|'])`)
+var excludeExtRe = regexp.MustCompile(`^.*\.(jpg|jpeg|tiff|png|JPG|gif|GIF|svg|doc|DOC|pdf|PDF)$`)
+var extractRe = regexp.MustCompile(`("|')([^("|')[\]]*)("|')`)
+
+func scanCommitTree(c *object.Commit, dir string) error {
+	iter := 0
+	// ... retrieve the tree from the commit
+	tree, err := c.Tree()
+	if err != nil {
+		return err
+	}
+
+	tree.Files().ForEach(func(file *object.File) error {
+		// check for file extentions we don't want to inspect
+		if excludeExtRe.Match([]byte(file.Name)) {
+			return nil
+		}
+
+		// Im going to need to have a switch from url v dir param
+		fullpath := dir + "/" + file.Name
+		f, err := os.Open(fullpath)
+		if err != nil {
+			fmt.Printf("CANNOT OPEN: %s", file.Name)
+		}
+		defer f.Close()
+
+		scanner := bufio.NewScanner(f)
+		scanner.Split(bufio.ScanLines)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if lineRe.Match([]byte(line)) {
+				temp := string(extractRe.Find([]byte(line)))
+				ns := strings.Replace(temp, "'", "", -1)
+				ns = strings.Replace(ns, "\"", "", -1)
+				_, ok := list[ns]
+				if !ok {
+					// add commit id or branch
+					list[ns] = []map[string]string{{"line": line}, {"fileName": file.Name}}
+					iter += 1
+				}
+			}
+		}
+
+		return nil
+	})
+
+	return nil
 }
